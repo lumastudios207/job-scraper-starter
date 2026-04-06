@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "jobs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "company_name": { "type": "string" },
+          "location": { "type": ["string", "null"] },
+          "is_remote": { "type": "boolean" },
+          "posted_date_raw": { "type": ["string", "null"] },
+          "job_url": { "type": "string" }
+        },
+        "required": ["company_name", "job_url", "is_remote"]
+      }
+    }
+  },
+  "required": ["jobs"]
+}

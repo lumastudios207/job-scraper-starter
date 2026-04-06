@@ -1,0 +1,15 @@
+site_name: greycroft
+start_url: https://jobs.greycroft.com/jobs
+needs_js: true
+board_family: getro
+source_site_label: Greycroft Job Board
+extract_prompt: >
+  Extract all visible job listings from this jobs page.
+  For each listing, return company_name, location, is_remote, posted_date_raw, and job_url.
+  Use the visible listing location exactly as shown.
+  Mark is_remote true only when the listing explicitly says remote.
+actions:
+  - type: wait
+    milliseconds: 2000
+remote_keywords:
+  - remote

@@ -1,0 +1,33 @@
+site_name: weworkremotely
+needs_js: false
+board_family: custom
+source_site_label: We Work Remotely
+strategy: scrape_extract
+start_urls:
+  - https://weworkremotely.com/categories/remote-programming-jobs
+  - https://weworkremotely.com/categories/remote-design-jobs
+  - https://weworkremotely.com/categories/remote-product-jobs
+  - https://weworkremotely.com/categories/remote-customer-support-jobs
+  - https://weworkremotely.com/categories/remote-finance-and-legal-jobs
+  - https://weworkremotely.com/categories/remote-sales-and-marketing-jobs
+scrape_options:
+  formats:
+    - extract
+  onlyMainContent: true
+  waitFor: 2000
+extract_prompt: >
+  Extract every job listing visible on this page.
+  For each listing return:
+    - company_name: the hiring company name
+    - location: the geographic or remote-eligibility text (e.g. "Anywhere in the World", "USA Only", "Remote")
+    - is_remote: true for all listings (this is a remote jobs board)
+    - posted_date_raw: any visible date or recency text, or null if not shown
+    - job_url: the full URL to the job detail page on weworkremotely.com
+  Do NOT fabricate listings. Only return jobs actually present on the page.
+remote_keywords:
+  - remote
+  - anywhere in the world
+  - united states of america
+  - north america only
+  - emea only
+  - asia only

@@ -1,0 +1,26 @@
+site_name: 8vc
+start_url: https://jobs.8vc.com/jobs
+needs_js: true
+board_family: getro
+source_site_label: 8VC Job Board
+strategy: scrape_extract
+scrape_options:
+  formats:
+    - markdown
+    - extract
+  onlyMainContent: false
+  waitFor: 3000
+extract_prompt: >
+  Extract every visible job card from this jobs index page.
+  Each card represents a single open role at a portfolio company.
+  For each job card return:
+    - company_name: the hiring company shown on the card (NOT "8VC")
+    - location: the location or remote-eligibility text shown on the card, exactly as displayed
+    - is_remote: true only when the card explicitly says "Remote" in the location
+    - posted_date_raw: the relative or absolute date text shown on the card (e.g. "Today", "2 days")
+    - job_url: the URL that links to the individual job detail page (e.g. https://jobs.8vc.com/companies/…/jobs/…)
+  Do NOT return company profile URLs or company overview pages.
+  Do NOT fabricate listings that are not visible on the page.
+  Return every card visible on the page, not just a sample.
+remote_keywords:
+  - remote
