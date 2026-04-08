@@ -1,0 +1,10 @@
+site_name: hydeparkvp
+start_url: https://jobs.hydeparkvp.com/jobs?filter=eyJqb2JfZnVuY3Rpb25zIjpbIkRlc2lnbiJdfQ%3D%3D
+needs_js: true
+board_family: getro
+source_site_label: Hyde Park Venture Partners Job Board
+strategy: scrape_parse
+scrape_options:
+  waitFor: 3000
+remote_keywords:
+  - remote

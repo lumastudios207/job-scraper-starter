@@ -1,0 +1,11 @@
+site_name: dribbble
+start_url: https://dribbble.com/jobs
+needs_js: true
+board_family: custom
+source_site_label: Dribbble Jobs
+strategy: scrape_custom
+parser: dribbble
+scrape_options:
+  waitFor: 3000
+remote_keywords:
+  - remote

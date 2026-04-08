@@ -1,0 +1,11 @@
+site_name: uiuxjobsboard
+start_url: https://uiuxjobsboard.com/
+needs_js: false
+board_family: custom
+source_site_label: UI/UX Jobs Board
+strategy: scrape_custom
+parser: uiuxjobsboard
+scrape_options:
+  waitFor: 3000
+remote_keywords:
+  - remote

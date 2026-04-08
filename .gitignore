@@ -3,3 +3,6 @@
 __pycache__/
 output/
 debug_*.json
+credentials.json
+token.json
+logs/

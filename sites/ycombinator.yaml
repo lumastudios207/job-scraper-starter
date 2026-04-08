@@ -1,0 +1,11 @@
+site_name: ycombinator
+start_url: https://www.ycombinator.com/jobs/role/designer
+needs_js: true
+board_family: custom
+source_site_label: YC Jobs
+strategy: scrape_custom
+parser: yc
+scrape_options:
+  waitFor: 3000
+remote_keywords:
+  - remote

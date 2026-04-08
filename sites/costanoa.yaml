@@ -1,0 +1,11 @@
+site_name: costanoa
+start_url: https://jobs.costanoavc.com/jobs?jobTypes=UX+Designer&jobTypes=Designer&jobTypes=Product+Designer&jobTypes=UI+Designer
+needs_js: true
+board_family: consider
+source_site_label: Costanoa Ventures Job Board
+strategy: scrape_custom
+parser: consider
+scrape_options:
+  waitFor: 3000
+remote_keywords:
+  - remote
