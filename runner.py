@@ -675,6 +675,32 @@ def normalize_jobs(jobs: list[dict], config: dict, run_date: str) -> list[dict]:
     return normalized
 
 
+_MD_ARTIFACT_RE = re.compile(r"!\[|]\([^)]*\)|\*\*|__|\[|]")
+
+
+def _clean_markdown(value: str) -> str:
+    """Strip common markdown artifacts from a string."""
+    return _MD_ARTIFACT_RE.sub("", value).strip()
+
+
+def clean_and_validate_rows(rows: list[dict]) -> list[dict]:
+    """Clean markdown artifacts and remove rows with empty company_name."""
+    cleaned = []
+    for row in rows:
+        for field in ("company_name", "job_title"):
+            original = row[field]
+            scrubbed = _clean_markdown(original)
+            if scrubbed != original:
+                print(f'  WARNING: Cleaned markdown artifacts from {field} in {row["source_site"]}: "{original}" → "{scrubbed}"')
+                row[field] = scrubbed
+
+        if not row["company_name"].strip():
+            print(f'  WARNING: Removed row with empty company_name from {row["source_site"]}: {row["job_url"]}')
+            continue
+        cleaned.append(row)
+    return cleaned
+
+
 DESIGN_KEYWORDS = [
     "ux designer", "ux design", "product designer", "web designer",
     "ui designer", "ui engineer", "ui/ux", "ux/ui",
@@ -740,6 +766,7 @@ def main():
         try:
             jobs = firecrawl_extract(config, schema)
             rows = normalize_jobs(jobs, config, run_date)
+            rows = clean_and_validate_rows(rows)
             extracted = len(rows)
             kept = filter_design_roles(rows)
             all_rows.extend(kept)
