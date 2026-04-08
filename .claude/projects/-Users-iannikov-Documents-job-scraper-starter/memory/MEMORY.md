@@ -1,0 +1,2 @@
+- [Firecrawl reliability](project_firecrawl_reliability.md) — which strategies work per site, known 408/empty-result failures
+- [Design role focus](project_design_role_focus.md) — user filters for design roles, weworkremotely design category is critical
