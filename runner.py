@@ -804,6 +804,15 @@ def main():
 
     print(f"Run complete: {len(all_rows)} design roles across {len(site_results)} sites. Warnings: {warnings}.{drive_msg}")
 
+    # ── Enrichment phase ─────────────────────────────────────────────
+    print()
+    print("--- STARTING ENRICHMENT ---")
+    try:
+        from enrich import run_enrichment
+        run_enrichment()
+    except Exception as e:
+        print(f"Enrichment failed: {e}")
+
 
 if __name__ == "__main__":
     main()
