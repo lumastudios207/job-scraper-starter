@@ -165,6 +165,7 @@ def run_enrichment(max_companies: int | None = None):
         return None
 
     # ── Input ────────────────────────────────────────────────────────
+    run_date = datetime.now().date().isoformat()
     snapshot_path, snapshot_date = find_latest_snapshot()
     print(f"Reading snapshot: {snapshot_path.name}")
     df = pd.read_csv(snapshot_path)
@@ -224,7 +225,7 @@ def run_enrichment(max_companies: int | None = None):
             })
 
     # ── Output CSV ───────────────────────────────────────────────────
-    out_path = OUTPUT_DIR / f"outreach-{snapshot_date}.csv"
+    out_path = OUTPUT_DIR / f"outreach-{run_date}.csv"
     out_df = pd.DataFrame(outreach_rows, columns=[
         "first_name", "last_name", "email", "title", "linkedin_url",
         "company_name", "website", "roles_hiring_for", "source_boards", "job_posted",
@@ -242,7 +243,7 @@ def run_enrichment(max_companies: int | None = None):
 
     # ── Summary ──────────────────────────────────────────────────────
     print(f"""
-ENRICHMENT SUMMARY — {snapshot_date}
+ENRICHMENT SUMMARY — {run_date}
 Companies in snapshot:        {total_companies}
 Unique companies processed:   {len(companies)}
 Skipped (size > 100):         {stats['size_filtered']}

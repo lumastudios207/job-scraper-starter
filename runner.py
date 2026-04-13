@@ -755,7 +755,7 @@ def upload_to_google_drive(file_path: Path):
 
 
 def main():
-    run_date = datetime.utcnow().date().isoformat()
+    run_date = datetime.now().date().isoformat()
     schema = load_schema()
     configs = load_site_configs()
     all_rows = []
