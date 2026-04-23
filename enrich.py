@@ -68,10 +68,62 @@ def deduplicate_companies(df: pd.DataFrame) -> pd.DataFrame:
 
 _TITLE_PATTERNS = [re.compile(r"\b" + re.escape(kw) + r"\b", re.IGNORECASE) for kw in TITLE_KEYWORDS]
 
+SIZE_LIMIT = 100
+
 
 def _matches_title(position: str) -> bool:
     pos = position or ""
     return any(p.search(pos) for p in _TITLE_PATTERNS)
+
+
+def _parse_min_employees(value) -> int | None:
+    """Parse Hunter headcount/size values to a minimum employee count.
+
+    Handles ranges like '51-200', '1K-5K', '10K+', and plain integers.
+    Returns None if the value is missing or unparseable (caller should
+    treat None as 'unknown size, keep the company').
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    s = str(value).strip().replace(",", "").replace(" ", "")
+    if not s:
+        return None
+    lo = s.split("-", 1)[0].rstrip("+")
+
+    def _to_int(tok: str) -> int | None:
+        tok = tok.upper()
+        mult = 1
+        if tok.endswith("K"):
+            mult, tok = 1_000, tok[:-1]
+        elif tok.endswith("M"):
+            mult, tok = 1_000_000, tok[:-1]
+        try:
+            return int(float(tok) * mult)
+        except ValueError:
+            return None
+
+    return _to_int(lo)
+
+
+def _extract_company_size(body: dict) -> tuple[int | None, str]:
+    """Pull the company size out of a Hunter domain-search response body.
+
+    Returns (min_employees, raw_display). min_employees is None when Hunter
+    did not return any size field — in that case the caller keeps the company.
+    """
+    company_info = body.get("company") or {}
+    metrics = company_info.get("metrics") or {}
+    raw = (
+        body.get("headcount")
+        or company_info.get("headcount")
+        or company_info.get("size")
+        or company_info.get("employees")
+        or metrics.get("employees")
+        or metrics.get("employeesRange")
+    )
+    return _parse_min_employees(raw), str(raw) if raw not in (None, "") else ""
 
 
 def _hunter_get(endpoint: str, params: dict, company_label: str) -> dict | None:
@@ -101,7 +153,8 @@ def enrich_company(company_name: str) -> tuple[str | None, list[dict], str]:
     skip_reason is "" on success, or a key like "size_filtered", "no_domain", etc.
     """
     # Step A: Domain Search
-    data = _hunter_get("domain-search", {"company": company_name, "limit": 10, "size": "1,100"}, company_name)
+    # Hunter's `size` parameter is "min,max" employee count — enforces a server-side filter.
+    data = _hunter_get("domain-search", {"company": company_name, "limit": 10, "size": f"1,{SIZE_LIMIT}"}, company_name)
     if data is None:
         return None, [], "api_error"
 
@@ -109,9 +162,17 @@ def enrich_company(company_name: str) -> tuple[str | None, list[dict], str]:
     domain = body.get("domain") or body.get("webmail", "")
     emails = body.get("emails", [])
 
+    # Client-side size check: Hunter sometimes returns companies that exceed the
+    # size filter (e.g. when the org name matches a large parent). Parse the
+    # response and skip anything whose minimum-of-range > SIZE_LIMIT.
+    min_size, size_raw = _extract_company_size(body)
+    if min_size is not None and min_size > SIZE_LIMIT:
+        print(f"  Skipped {company_name} — size {size_raw} exceeds {SIZE_LIMIT} employee limit")
+        return None, [], "size_filtered"
+
     if not domain and not emails:
         # No domain + no emails with size filter = likely outside target range
-        print(f"  Skipped {company_name} — outside target size range (1-100 employees)")
+        print(f"  Skipped {company_name} — outside target size range (1-{SIZE_LIMIT} employees)")
         return None, [], "size_filtered"
 
     if not domain:
@@ -234,19 +295,25 @@ def run_enrichment(max_companies: int | None = None):
 
     # ── Drive upload ─────────────────────────────────────────────────
     drive_status = "SKIPPED"
+    drive_link: str | None = None
     if GOOGLE_DRIVE_UPLOAD:
         try:
-            upload_to_google_drive(out_path)
-            drive_status = "OK"
+            drive_link = upload_to_google_drive(out_path)
+            drive_status = "OK" if drive_link else "TOKEN_EXPIRED"
         except Exception as e:
-            drive_status = f"FAILED ({e})"
+            import traceback
+            drive_status = f"FAILED ({type(e).__name__}: {e})"
+            print(f"\nERROR: Google Drive upload failed for {out_path.name}")
+            print(f"  {type(e).__name__}: {e}")
+            traceback.print_exc()
+            print(f"  The local CSV is still saved at: {out_path}")
 
     # ── Summary ──────────────────────────────────────────────────────
     print(f"""
 ENRICHMENT SUMMARY — {run_date}
 Companies in snapshot:        {total_companies}
 Unique companies processed:   {len(companies)}
-Skipped (size > 100):         {stats['size_filtered']}
+Skipped (size > {SIZE_LIMIT}):         {stats['size_filtered']}
 Companies with domain found:  {stats['domain_found']}
 Companies — no domain:        {stats['no_domain']}
 Contacts after verification:  {stats['contacts_verified']}
@@ -254,6 +321,11 @@ LinkedIn URLs found:          {stats['linkedin_found']}
 Output file:                  {out_path.name}
 Drive upload:                 {drive_status}
 """)
+
+    if drive_link:
+        print(f"ENRICHMENT COMPLETE: {out_path.name} written and uploaded to Drive: {drive_link}")
+    else:
+        print(f"ENRICHMENT COMPLETE: {out_path.name} written locally at {out_path} (Drive upload: {drive_status})")
 
     return out_path
 

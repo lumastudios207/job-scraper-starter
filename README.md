@@ -38,6 +38,15 @@ Two options:
 - Simpler: skip upload at first and manually place the CSV into Drive.
 - Better: enable Drive upload with OAuth credentials and set `GOOGLE_DRIVE_FOLDER_ID`.
 
+### Token expiry
+Google OAuth tokens expire periodically (typically after 7 days for testing-mode apps, or on revocation). If a run logs `CRITICAL: Google Drive token expired or revoked`, the CSV is still saved locally and enrichment still runs — only the Drive upload is skipped. To restore uploads, run:
+
+```
+python refresh_token.py
+```
+
+This opens the OAuth flow in your browser and writes a fresh `token.json`. Re-run `python runner.py` afterward if you want the current snapshot uploaded.
+
 ## Add a new site
 1. Copy an existing file in `sites/`
 2. Update the URL, extraction prompt, and rules

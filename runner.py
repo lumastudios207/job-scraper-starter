@@ -14,6 +14,7 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from google.auth.exceptions import RefreshError
 
 BASE_DIR = Path(__file__).resolve().parent
 SITES_DIR = BASE_DIR / "sites"
@@ -723,13 +724,27 @@ def write_csv(rows: list[dict], run_date: str) -> Path:
     return out_path
 
 
+def _print_token_expired_error(file_path: Path) -> None:
+    print(
+        "CRITICAL: Google Drive token expired or revoked.\n"
+        "Please run: python refresh_token.py\n"
+        f"CSV has been saved locally at: {file_path}\n"
+        "Re-run python runner.py after refreshing the token."
+    )
+
+
 def get_drive_service():
     creds = None
     if TOKEN_PATH.exists():
         creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except RefreshError:
+                if TOKEN_PATH.exists():
+                    TOKEN_PATH.unlink()
+                raise
         else:
             flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_PATH), SCOPES)
             creds = flow.run_local_server(port=0)
@@ -737,21 +752,32 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-def upload_to_google_drive(file_path: Path):
+def upload_to_google_drive(file_path: Path) -> str | None:
+    """Upload to Drive. Returns the webViewLink on success, None on failure/disabled.
+
+    On RefreshError: deletes token.json, prints instructions, returns None
+    so the pipeline can continue with the local CSV instead of crashing.
+    """
     if not GOOGLE_DRIVE_UPLOAD:
-        return
+        return None
     if not GOOGLE_DRIVE_FOLDER_ID:
         raise RuntimeError("GOOGLE_DRIVE_UPLOAD is true but GOOGLE_DRIVE_FOLDER_ID is missing")
-    service = get_drive_service()
-    file_metadata = {
-        "name": file_path.name,
-        "parents": [GOOGLE_DRIVE_FOLDER_ID],
-    }
-    media = MediaFileUpload(str(file_path), mimetype="text/csv", resumable=True)
-    uploaded = service.files().create(
-        body=file_metadata, media_body=media, fields="id, name, webViewLink"
-    ).execute()
-    print(f"Uploaded to Drive: {uploaded.get('name')} — {uploaded.get('webViewLink')}")
+    try:
+        service = get_drive_service()
+        file_metadata = {
+            "name": file_path.name,
+            "parents": [GOOGLE_DRIVE_FOLDER_ID],
+        }
+        media = MediaFileUpload(str(file_path), mimetype="text/csv", resumable=True)
+        uploaded = service.files().create(
+            body=file_metadata, media_body=media, fields="id, name, webViewLink"
+        ).execute()
+        link = uploaded.get("webViewLink")
+        print(f"Uploaded to Drive: {uploaded.get('name')} — {link}")
+        return link
+    except RefreshError:
+        _print_token_expired_error(file_path)
+        return None
 
 
 def main():
@@ -798,9 +824,10 @@ def main():
     print(f"Wrote CSV: {csv_path}")
 
     drive_msg = ""
+    drive_ok = True
     if GOOGLE_DRIVE_UPLOAD:
-        upload_to_google_drive(csv_path)
-        drive_msg = " CSV uploaded to Drive."
+        drive_ok = upload_to_google_drive(csv_path)
+        drive_msg = " CSV uploaded to Drive." if drive_ok else " Drive upload skipped (token issue)."
 
     print(f"Run complete: {len(all_rows)} design roles across {len(site_results)} sites. Warnings: {warnings}.{drive_msg}")
 
