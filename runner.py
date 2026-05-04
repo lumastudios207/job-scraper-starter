@@ -734,21 +734,44 @@ def _print_token_expired_error(file_path: Path) -> None:
 
 
 def get_drive_service():
+    """Return an authorized Drive client, preferring silent token reuse.
+
+    Order of attempts:
+      1. Load token.json from disk (no browser).
+      2. If credentials are already valid, use them immediately.
+      3. If the access token expired but a refresh_token is present,
+         call creds.refresh(Request()) silently.
+      4. Open the browser OAuth flow only as a last resort, when no
+         usable token is on disk.
+    """
     creds = None
     if TOKEN_PATH.exists():
         creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-            except RefreshError:
-                if TOKEN_PATH.exists():
-                    TOKEN_PATH.unlink()
-                raise
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_PATH), SCOPES)
-            creds = flow.run_local_server(port=0)
-        TOKEN_PATH.write_text(creds.to_json())
+
+    # 2. Already valid — return without touching the network or disk.
+    if creds and creds.valid:
+        return build("drive", "v3", credentials=creds)
+
+    # 3. Silent refresh whenever a refresh_token is available, regardless of
+    #    whether `expired` is set (some token states have valid=False but
+    #    expired=False; refreshing still works as long as we have the refresh_token).
+    if creds and creds.refresh_token:
+        try:
+            print("Drive auth: refreshing access token silently via refresh_token...")
+            creds.refresh(Request())
+            TOKEN_PATH.write_text(creds.to_json())
+            return build("drive", "v3", credentials=creds)
+        except RefreshError:
+            if TOKEN_PATH.exists():
+                TOKEN_PATH.unlink()
+            raise
+
+    # 4. Last resort — interactive browser flow. Force offline+consent so
+    #    Google issues a refresh_token we can reuse on subsequent runs.
+    print("Drive auth: no usable token on disk, opening browser OAuth flow...")
+    flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_PATH), SCOPES)
+    creds = flow.run_local_server(port=0, access_type="offline", prompt="consent")
+    TOKEN_PATH.write_text(creds.to_json())
     return build("drive", "v3", credentials=creds)
 
 

@@ -25,7 +25,7 @@ def main() -> None:
         TOKEN_PATH.unlink()
 
     flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_PATH), SCOPES)
-    creds = flow.run_local_server(port=0)
+    creds = flow.run_local_server(port=0, access_type="offline", prompt="consent")
     TOKEN_PATH.write_text(creds.to_json())
     print("Token refreshed successfully — you can now run python runner.py")
 

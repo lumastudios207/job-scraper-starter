@@ -252,6 +252,7 @@ def run_enrichment(max_companies: int | None = None):
         company = row["company_name"]
         roles = row["roles_hiring_for"]
         boards = row["source_boards"]
+        job_url = row["sample_job_url"]
 
         print(f"\n  Processing: {company}")
         time.sleep(1)  # rate limit before domain-search call
@@ -281,15 +282,15 @@ def run_enrichment(max_companies: int | None = None):
                 "company_name": company,
                 "website": domain,
                 "roles_hiring_for": roles,
+                "job_url": job_url,
                 "source_boards": boards,
-                "job_posted": roles,
             })
 
     # ── Output CSV ───────────────────────────────────────────────────
     out_path = OUTPUT_DIR / f"outreach-{run_date}.csv"
     out_df = pd.DataFrame(outreach_rows, columns=[
         "first_name", "last_name", "email", "title", "linkedin_url",
-        "company_name", "website", "roles_hiring_for", "source_boards", "job_posted",
+        "company_name", "website", "roles_hiring_for", "job_url", "source_boards",
     ])
     out_df.to_csv(out_path, index=False)
 
